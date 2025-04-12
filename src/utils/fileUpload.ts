@@ -43,6 +43,13 @@ export const uploadFile = async (file: File, type: FileType): Promise<UploadedFi
 
     console.log("Uploading file to path:", filePath);
     
+    // Check if the user is authenticated
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      console.error("User not authenticated for file upload");
+      return null;
+    }
+    
     // Upload file to Supabase
     const { data, error } = await supabase.storage
       .from("news_media")

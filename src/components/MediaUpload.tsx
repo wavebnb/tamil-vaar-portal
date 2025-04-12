@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { FileType, validateFile, uploadFile } from "@/utils/fileUpload";
-import { UploadIcon, X } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
+import { UploadIcon, X, Loader2 } from "lucide-react";
 
 interface MediaUploadProps {
   type: FileType;
@@ -17,6 +18,7 @@ const MediaUpload = ({ type, onUploadComplete, value, className }: MediaUploadPr
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(value || null);
+  const { toast } = useToast();
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) {
@@ -29,6 +31,11 @@ const MediaUpload = ({ type, onUploadComplete, value, className }: MediaUploadPr
     const validationError = validateFile(file, type);
     if (validationError) {
       setError(validationError);
+      toast({
+        variant: "destructive",
+        title: "File validation error",
+        description: validationError,
+      });
       return;
     }
 
@@ -45,13 +52,27 @@ const MediaUpload = ({ type, onUploadComplete, value, className }: MediaUploadPr
       
       if (result) {
         onUploadComplete(result.url);
+        toast({
+          title: "Upload successful",
+          description: `${type === "image" ? "Image" : "Video"} has been uploaded successfully.`,
+        });
       } else {
-        setError(`Failed to upload ${type}`);
+        setError(`Failed to upload ${type}. Please try again.`);
+        toast({
+          variant: "destructive",
+          title: "Upload failed",
+          description: `Could not upload ${type}. Please check your connection and try again.`,
+        });
         setPreview(null);
       }
     } catch (err) {
       console.error(`Error uploading ${type}:`, err);
       setError(`Error uploading ${type}`);
+      toast({
+        variant: "destructive",
+        title: "Upload error",
+        description: `An unexpected error occurred while uploading the ${type}.`,
+      });
     } finally {
       setIsUploading(false);
     }
@@ -78,7 +99,11 @@ const MediaUpload = ({ type, onUploadComplete, value, className }: MediaUploadPr
             htmlFor={`${type}-upload`}
             className="flex flex-col items-center cursor-pointer"
           >
-            <UploadIcon className="h-6 w-6 mb-2 text-gray-500" />
+            {isUploading ? (
+              <Loader2 className="h-6 w-6 mb-2 text-gray-500 animate-spin" />
+            ) : (
+              <UploadIcon className="h-6 w-6 mb-2 text-gray-500" />
+            )}
             <p className="text-sm font-medium mb-1">
               {isUploading
                 ? `${type === "image" ? "படம்" : "வீடியோ"} பதிவேற்றுகிறது...`
