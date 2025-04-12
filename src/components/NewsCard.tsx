@@ -3,6 +3,7 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { CalendarIcon, User } from "lucide-react";
+import { format, parseISO } from "date-fns";
 
 interface NewsCardProps {
   id: string;
@@ -50,7 +51,7 @@ const NewsCard = ({
             <User className="h-4 w-4 mr-1" />
             <span className="mr-3">{author}</span>
             <CalendarIcon className="h-4 w-4 mr-1" />
-            <span>{date}</span>
+            <span title={date}>{date}</span>
           </div>
         </div>
       </div>
@@ -85,7 +86,7 @@ const NewsCard = ({
         <User className="h-3 w-3 mr-1" />
         <span className="mr-3">{author}</span>
         <CalendarIcon className="h-3 w-3 mr-1" />
-        <span>{date}</span>
+        <span title={date}>{date}</span>
       </CardFooter>
     </Card>
   );
