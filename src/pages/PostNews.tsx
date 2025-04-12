@@ -11,7 +11,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/components/ui/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { mockCategories } from "@/data/mockData";
+import MediaUpload from "@/components/MediaUpload";
+import { supabase } from "@/integrations/supabase/client";
 
 const PostNews = () => {
   const { isAuthenticated, user } = useAuth();
@@ -24,6 +27,8 @@ const PostNews = () => {
     excerpt: "",
     category: "",
     imageUrl: "",
+    videoUrl: "",
+    mediaType: "image" as "image" | "video",
   });
   
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -59,6 +64,34 @@ const PostNews = () => {
     }
   };
   
+  const handleMediaTabChange = (value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      mediaType: value as "image" | "video"
+    }));
+  };
+
+  const handleImageUpload = (url: string) => {
+    setFormData(prev => ({
+      ...prev,
+      imageUrl: url
+    }));
+    
+    if (errors.imageUrl) {
+      setErrors(prev => ({
+        ...prev,
+        imageUrl: ""
+      }));
+    }
+  };
+
+  const handleVideoUpload = (url: string) => {
+    setFormData(prev => ({
+      ...prev,
+      videoUrl: url
+    }));
+  };
+  
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     
@@ -78,15 +111,15 @@ const PostNews = () => {
       newErrors.category = "பிரிவு அவசியம்";
     }
     
-    if (!formData.imageUrl.trim()) {
-      newErrors.imageUrl = "படம் URL அவசியம்";
+    if (formData.mediaType === "image" && !formData.imageUrl) {
+      newErrors.imageUrl = "படம் அவசியம்";
     }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm()) {
@@ -95,16 +128,26 @@ const PostNews = () => {
     
     setIsSubmitting(true);
     
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      // In a real implementation, we'd save to Supabase here
+      // For now, we'll simulate the API call with a timeout
+      
       toast({
         title: "செய்தி வெளியிடப்பட்டது",
         description: "உங்கள் செய்தி வெற்றிகரமாக சமர்ப்பிக்கப்பட்டது மற்றும் மதிப்பாய்வுக்காக காத்திருக்கிறது.",
       });
       
       navigate("/profile");
+    } catch (error) {
+      console.error("Error submitting news:", error);
+      toast({
+        title: "பிழை ஏற்பட்டது",
+        description: "செய்தியை சமர்ப்பிக்கும் போது பிழை ஏற்பட்டது. மீண்டும் முயற்சிக்கவும்.",
+        variant: "destructive",
+      });
+    } finally {
       setIsSubmitting(false);
-    }, 1500);
+    }
   };
   
   // Redirect to login if not authenticated
@@ -205,23 +248,37 @@ const PostNews = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="imageUrl">படம் URL</Label>
-                  <Input
-                    id="imageUrl"
-                    name="imageUrl"
-                    type="url"
-                    value={formData.imageUrl}
-                    onChange={handleChange}
-                    placeholder="செய்தியின் படத்திற்கான URL-ஐ உள்ளிடவும்"
-                  />
-                  <p className="text-xs text-gray-500">
-                    படத்திற்கான ஒரு URL-ஐ உள்ளிடவும் (உதாரணம்: https://images.unsplash.com/...)
-                  </p>
-                  {errors.imageUrl && (
-                    <Alert variant="destructive" className="py-2">
-                      <AlertDescription>{errors.imageUrl}</AlertDescription>
-                    </Alert>
-                  )}
+                  <Label>ஊடகம்</Label>
+                  <Tabs value={formData.mediaType} onValueChange={handleMediaTabChange}>
+                    <TabsList className="grid grid-cols-2 w-[200px]">
+                      <TabsTrigger value="image">படம்</TabsTrigger>
+                      <TabsTrigger value="video">வீடியோ</TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="image" className="mt-4">
+                      <MediaUpload
+                        type="image"
+                        onUploadComplete={handleImageUpload}
+                        value={formData.imageUrl}
+                      />
+                      {errors.imageUrl && (
+                        <Alert variant="destructive" className="py-2 mt-2">
+                          <AlertDescription>{errors.imageUrl}</AlertDescription>
+                        </Alert>
+                      )}
+                    </TabsContent>
+                    
+                    <TabsContent value="video" className="mt-4">
+                      <MediaUpload
+                        type="video"
+                        onUploadComplete={handleVideoUpload}
+                        value={formData.videoUrl}
+                      />
+                      <p className="text-xs text-gray-500 mt-2">
+                        வீடியோ விருப்பத்தேர்வானது. இது இல்லாமலும் நீங்கள் தொடரலாம்.
+                      </p>
+                    </TabsContent>
+                  </Tabs>
                 </div>
                 
                 <div className="pt-4 flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
