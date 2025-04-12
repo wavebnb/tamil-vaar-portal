@@ -38,11 +38,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           // Get user profile from the database
           setTimeout(async () => {
             try {
-              const { data: profileData } = await supabase
+              const { data: profileData, error } = await supabase
                 .from('profiles')
                 .select('*')
                 .eq('id', currentSession.user.id)
                 .single();
+                
+              if (error) {
+                console.error("Error fetching profile:", error);
+                return;
+              }
                 
               if (profileData) {
                 setUser({
@@ -73,18 +78,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     );
 
     // Check for existing session
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      setSession(currentSession);
-      setIsAuthenticated(!!currentSession);
-      
-      if (currentSession?.user) {
-        // Get user profile
-        supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', currentSession.user.id)
-          .single()
-          .then(({ data: profileData }) => {
+    const checkSession = async () => {
+      try {
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        setSession(currentSession);
+        setIsAuthenticated(!!currentSession);
+        
+        if (currentSession?.user) {
+          // Get user profile
+          try {
+            const { data: profileData, error } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', currentSession.user.id)
+              .single();
+              
+            if (error) {
+              console.error("Error fetching profile:", error);
+              setIsLoading(false);
+              return;
+            }
+            
             if (profileData) {
               setUser({
                 id: currentSession.user.id,
@@ -103,16 +117,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 bio: null
               });
             }
-            setIsLoading(false);
-          })
-          .catch((error) => {
+          } catch (error) {
             console.error("Error fetching profile:", error);
-            setIsLoading(false);
-          });
-      } else {
+          }
+        }
+      } catch (error) {
+        console.error("Error checking session:", error);
+      } finally {
         setIsLoading(false);
       }
-    });
+    };
+    
+    checkSession();
 
     return () => {
       subscription.unsubscribe();
