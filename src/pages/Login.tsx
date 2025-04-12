@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
-import { mockUsers } from "@/data/mockData";
+import { supabase } from "@/integrations/supabase/client";
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -44,6 +44,8 @@ const Login = () => {
     
     if (!formData.email.trim()) {
       newErrors.email = "மின்னஞ்சல் அவசியம்";
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = "சரியான மின்னஞ்சல் முகவரியை உள்ளிடவும்";
     }
     
     if (!formData.password) {
@@ -54,7 +56,7 @@ const Login = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm()) {
@@ -63,30 +65,60 @@ const Login = () => {
     
     setIsSubmitting(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      // For demo, use mock user
-      const user = mockUsers.find(u => u.email === formData.email);
+    try {
+      // Sign in with Supabase
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      });
       
-      if (user && formData.password === "password") {
+      if (error) {
+        throw error;
+      }
+      
+      if (data.user) {
+        // Get user profile data
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+        
         setIsAuthenticated(true);
-        setUser(user);
+        setUser({
+          id: data.user.id,
+          name: profileData?.name || data.user.user_metadata?.name || 'User',
+          email: data.user.email || '',
+          avatar: profileData?.avatar || null,
+          bio: profileData?.bio || null,
+        });
         
         toast({
-          title: "உள்நுழைவு வெற்றிகரமானது",
+          title: "உள்நுழைவு வெற்றி",
           description: "வரவேற்கிறோம்!",
         });
         
         navigate("/");
+      }
+    } catch (error: any) {
+      console.error("Login error:", error);
+      
+      if (error.message.includes("Invalid login credentials")) {
+        toast({
+          title: "உள்நுழைவு தோல்வி",
+          description: "தவறான மின்னஞ்சல் அல்லது கடவுச்சொல்",
+          variant: "destructive",
+        });
       } else {
-        // Failed login
-        setErrors({
-          password: "தவறான மின்னஞ்சல் அல்லது கடவுச்சொல்",
+        toast({
+          title: "உள்நுழைவு தோல்வியடைந்தது",
+          description: error.message || "ஏதோ தவறு நடந்துவிட்டது. மீண்டும் முயற்சிக்கவும்.",
+          variant: "destructive",
         });
       }
-      
+    } finally {
       setIsSubmitting(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -98,16 +130,10 @@ const Login = () => {
               உள்நுழைக
             </CardTitle>
             <CardDescription className="text-center">
-              உங்கள் கணக்கில் உள்நுழைந்து செய்திகளை வாசிக்கவும் மற்றும் பகிரவும்
+              உங்கள் கணக்கில் உள்நுழைந்து தொடரவும்
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="mb-4 p-3 bg-yellow-50 text-yellow-800 rounded border border-yellow-200">
-              <p className="text-sm font-semibold">செயல்விளக்கத்திற்கு, பின்வரும் தகவலைப் பயன்படுத்தவும்:</p>
-              <p className="text-xs mt-1">மின்னஞ்சல்: senthil@example.com</p>
-              <p className="text-xs">கடவுச்சொல்: password</p>
-            </div>
-            
             <form onSubmit={handleSubmit}>
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -128,12 +154,7 @@ const Login = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <Label htmlFor="password">கடவுச்சொல்</Label>
-                    <Link to="/forgot-password" className="text-xs text-tamil-blue hover:underline">
-                      கடவுச்சொல் மறந்துவிட்டீர்களா?
-                    </Link>
-                  </div>
+                  <Label htmlFor="password">கடவுச்சொல்</Label>
                   <Input
                     id="password"
                     name="password"
@@ -155,7 +176,7 @@ const Login = () => {
               </div>
             </form>
           </CardContent>
-          <CardFooter className="flex justify-center">
+          <CardFooter className="flex flex-col space-y-4 items-center">
             <p className="text-sm text-gray-500">
               கணக்கு இல்லையா? {" "}
               <Link to="/register" className="text-tamil-blue hover:underline">

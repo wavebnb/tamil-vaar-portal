@@ -41,6 +41,8 @@ export const uploadFile = async (file: File, type: FileType): Promise<UploadedFi
     const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
     const filePath = `${type}s/${fileName}`;
 
+    console.log("Uploading file to path:", filePath);
+    
     // Upload file to Supabase
     const { data, error } = await supabase.storage
       .from("news_media")
@@ -54,10 +56,14 @@ export const uploadFile = async (file: File, type: FileType): Promise<UploadedFi
       return null;
     }
 
+    console.log("Upload successful:", data);
+
     // Get the public URL
     const { data: { publicUrl } } = supabase.storage
       .from("news_media")
       .getPublicUrl(data.path);
+
+    console.log("Public URL:", publicUrl);
 
     return {
       url: publicUrl,

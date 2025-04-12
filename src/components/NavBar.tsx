@@ -10,16 +10,31 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Menu, User, LogOut, Home, Newspaper, PenSquare } from "lucide-react";
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
 
 const NavBar = () => {
-  const { isAuthenticated, setIsAuthenticated, user, setUser } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { toast } = useToast();
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    setUser(null);
-    navigate("/");
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      toast({
+        title: "வெற்றிகரமாக வெளியேறியது",
+        description: "நீங்கள் வெற்றிகரமாக வெளியேறிவிட்டீர்கள்",
+      });
+      navigate("/");
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast({
+        title: "வெளியேறுவதில் பிழை",
+        description: "வெளியேறுவதில் பிழை ஏற்பட்டது. மீண்டும் முயற்சிக்கவும்.",
+        variant: "destructive",
+      });
+    }
   };
 
   const categories = [

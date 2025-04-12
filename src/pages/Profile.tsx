@@ -11,8 +11,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
-import { mockNews } from "@/data/mockData";
 import NewsCard from "@/components/NewsCard";
+import { supabase } from "@/integrations/supabase/client";
+
+interface NewsItem {
+  id: string;
+  title: string;
+  excerpt: string;
+  image_url: string;
+  category: string;
+  author_id: string;
+  created_at: string;
+}
 
 const Profile = () => {
   const { isAuthenticated, user, setUser } = useAuth();
@@ -27,27 +37,68 @@ const Profile = () => {
   });
   
   const [isEditing, setIsEditing] = useState(false);
-  const [userNews, setUserNews] = useState<any[]>([]);
+  const [userNews, setUserNews] = useState<NewsItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !user) {
       navigate("/login");
       return;
     }
     
-    // Simulate fetching user's news
-    const authorNews = mockNews.filter(news => news.author.id === 'a1').slice(0, 3);
-    setUserNews(authorNews);
+    // Fetch user's news from Supabase
+    const fetchUserNews = async () => {
+      try {
+        setIsLoading(true);
+        
+        const { data, error } = await supabase
+          .from('news')
+          .select('*')
+          .eq('author_id', user.id)
+          .order('created_at', { ascending: false });
+          
+        if (error) {
+          throw error;
+        }
+        
+        setUserNews(data || []);
+      } catch (error) {
+        console.error("Error fetching user news:", error);
+        toast({
+          title: "செய்திகளை பெறுவதில் பிழை",
+          description: "உங்கள் செய்திகளை பெறுவதில் பிழை ஏற்பட்டது.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
     
-  }, [isAuthenticated, navigate]);
+    fetchUserNews();
+  }, [isAuthenticated, user, navigate, toast]);
   
-  const handleUpdateProfile = (e: React.FormEvent) => {
+  const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Simulate API update
-    setTimeout(() => {
+    if (!user) return;
+    
+    try {
+      // Update profile in Supabase
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          name: userProfile.name,
+          bio: userProfile.bio,
+        })
+        .eq('id', user.id);
+        
+      if (error) {
+        throw error;
+      }
+      
+      // Update local state
       setUser({
-        ...user!,
+        ...user,
         name: userProfile.name,
         bio: userProfile.bio,
       });
@@ -58,7 +109,14 @@ const Profile = () => {
         title: "சுயவிவரம் புதுப்பிக்கப்பட்டது",
         description: "உங்கள் சுயவிவரம் வெற்றிகரமாக புதுப்பிக்கப்பட்டது.",
       });
-    }, 500);
+    } catch (error: any) {
+      console.error("Error updating profile:", error);
+      toast({
+        title: "சுயவிவரத்தை புதுப்பிப்பதில் பிழை",
+        description: error.message || "உங்கள் சுயவிவரத்தை புதுப்பிப்பதில் பிழை ஏற்பட்டது.",
+        variant: "destructive",
+      });
+    }
   };
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -147,7 +205,7 @@ const Profile = () => {
                             name="bio"
                             rows={4}
                             placeholder="உங்களைப் பற்றி சிறிது எழுதுங்கள்"
-                            value={userProfile.bio}
+                            value={userProfile.bio || ""}
                             onChange={handleChange}
                           />
                         </div>
@@ -177,7 +235,11 @@ const Profile = () => {
                   
                   <TabsContent value="news">
                     <h2 className="text-xl font-bold mb-4">நீங்கள் எழுதிய செய்திகள்</h2>
-                    {userNews.length > 0 ? (
+                    {isLoading ? (
+                      <Card className="p-6 text-center">
+                        <p>செய்திகளை ஏற்றுகிறது...</p>
+                      </Card>
+                    ) : userNews.length > 0 ? (
                       <div className="grid grid-cols-1 gap-4">
                         {userNews.map(news => (
                           <NewsCard
@@ -185,10 +247,10 @@ const Profile = () => {
                             id={news.id}
                             title={news.title}
                             excerpt={news.excerpt}
-                            image={news.image}
+                            image={news.image_url}
                             category={news.category}
-                            author={news.author.name}
-                            date={news.date}
+                            author={user?.name || ""}
+                            date={new Date(news.created_at).toLocaleDateString()}
                           />
                         ))}
                       </div>

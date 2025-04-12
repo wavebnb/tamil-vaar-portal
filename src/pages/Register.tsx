@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -67,7 +68,7 @@ const Register = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm()) {
@@ -76,27 +77,53 @@ const Register = () => {
     
     setIsSubmitting(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      // Mock registration success
-      const newUser = {
-        id: `u${Date.now()}`,
-        name: formData.name,
+    try {
+      // Register with Supabase
+      const { data, error } = await supabase.auth.signUp({
         email: formData.email,
-        avatar: "https://randomuser.me/api/portraits/lego/1.jpg",
-      };
-      
-      setIsAuthenticated(true);
-      setUser(newUser);
-      
-      toast({
-        title: "பதிவு வெற்றிகரமாக முடிந்தது",
-        description: "உங்கள் கணக்கு உருவாக்கப்பட்டது.",
+        password: formData.password,
+        options: {
+          data: {
+            name: formData.name,
+          }
+        }
       });
       
-      navigate("/");
+      if (error) {
+        throw error;
+      }
+      
+      if (data.user) {
+        setIsAuthenticated(true);
+        setUser({
+          id: data.user.id,
+          name: formData.name,
+          email: formData.email,
+          avatar: null,
+        });
+        
+        toast({
+          title: "பதிவு வெற்றிகரமாக முடிந்தது",
+          description: "உங்கள் கணக்கு உருவாக்கப்பட்டது.",
+        });
+        
+        navigate("/");
+      }
+    } catch (error: any) {
+      console.error("Registration error:", error);
+      
+      if (error.message.includes("email")) {
+        setErrors(prev => ({ ...prev, email: "இந்த மின்னஞ்சல் ஏற்கனவே பயன்படுத்தப்படுகிறது" }));
+      } else {
+        toast({
+          title: "பதிவு தோல்வியடைந்தது",
+          description: error.message || "ஏதோ தவறு நடந்துவிட்டது. மீண்டும் முயற்சிக்கவும்.",
+          variant: "destructive",
+        });
+      }
+    } finally {
       setIsSubmitting(false);
-    }, 1500);
+    }
   };
 
   return (

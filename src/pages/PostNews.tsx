@@ -129,20 +129,37 @@ const PostNews = () => {
     setIsSubmitting(true);
     
     try {
-      // In a real implementation, we'd save to Supabase here
-      // For now, we'll simulate the API call with a timeout
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+      
+      // Save to Supabase
+      const { data, error } = await supabase.from('news').insert({
+        title: formData.title,
+        content: formData.content,
+        excerpt: formData.excerpt,
+        category: formData.category,
+        image_url: formData.imageUrl,
+        video_url: formData.videoUrl,
+        author_id: user.id,
+        published: true, // Default to published
+      });
+      
+      if (error) {
+        throw error;
+      }
       
       toast({
         title: "செய்தி வெளியிடப்பட்டது",
-        description: "உங்கள் செய்தி வெற்றிகரமாக சமர்ப்பிக்கப்பட்டது மற்றும் மதிப்பாய்வுக்காக காத்திருக்கிறது.",
+        description: "உங்கள் செய்தி வெற்றிகரமாக சமர்ப்பிக்கப்பட்டது.",
       });
       
       navigate("/profile");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error submitting news:", error);
       toast({
         title: "பிழை ஏற்பட்டது",
-        description: "செய்தியை சமர்ப்பிக்கும் போது பிழை ஏற்பட்டது. மீண்டும் முயற்சிக்கவும்.",
+        description: error.message || "செய்தியை சமர்ப்பிக்கும் போது பிழை ஏற்பட்டது. மீண்டும் முயற்சிக்கவும்.",
         variant: "destructive",
       });
     } finally {
